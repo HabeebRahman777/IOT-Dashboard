@@ -1,0 +1,186 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <PubSubClient.h>
+
+// **WiFi and MQTT Details**
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // Example: "192.168.1.100"
+const int mqtt_port = 1883;
+
+// **ESP32 Device Credentials**
+const char* ESP32_ID = "DEVICE123"; 
+const char* ESP32_PASSWORD = "DEVICE_PASS";
+
+// **MQTT Topics (Format)**
+String userID = ""; // Fetched dynamically from API
+String baseTopic = ""; // Will be "user_id/esp32_id/"
+
+// **Define Switch GPIOs**
+#define SWITCH_1  16  // GPIO16
+#define SWITCH_2  17  // GPIO17
+#define SWITCH_3  18  // GPIO18
+#define SWITCH_4  19  // GPIO19
+#define SWITCH_5  21  // GPIO21
+
+// **Zero-Crossing Detector Pin**
+#define ZCD_PIN 4  
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void setup() {
+    Serial.begin(115200);
+    
+    // **Connect to WiFi**
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\n✅ WiFi Connected");
+
+    // **Fetch User ID**
+    fetchUserID();
+    
+    // **Set up MQTT**
+    client.setServer(mqtt_server, mqtt_port);
+    client.setCallback(callback);
+    
+    // **Connect to MQTT Broker**
+    connectToMQTT();
+
+    // **Subscribe to MQTT Topics**
+    subscribeToTopics();
+
+    // **Configure GPIOs as Outputs**
+    pinMode(SWITCH_1, OUTPUT);
+    pinMode(SWITCH_2, OUTPUT);
+    pinMode(SWITCH_3, OUTPUT);
+    pinMode(SWITCH_4, OUTPUT);
+    pinMode(SWITCH_5, OUTPUT);
+}
+
+void loop() {
+    if (!client.connected()) {
+        connectToMQTT();
+    }
+    client.loop();
+}
+
+// **Fetch User ID from API**
+void fetchUserID() {
+    HTTPClient http;
+    String url = "http://localhost:3050/api/devices/get-userId/" + String(ESP32_ID);
+    
+    http.begin(url);
+    int httpResponseCode = http.GET();
+    
+    if (httpResponseCode == 200) {
+        String response = http.getString();
+        Serial.println("✅ User ID Received: " + response);
+        userID = response;
+        baseTopic = userID + "/" + ESP32_ID + "/";
+    } else {
+        Serial.println("❌ Failed to get User ID");
+    }
+    http.end();
+}
+
+// **Connect to MQTT Broker**
+void connectToMQTT() {
+    while (!client.connected()) {
+        Serial.print("🔄 Connecting to MQTT...");
+        if (client.connect(ESP32_ID)) {
+            Serial.println("✅ Connected to MQTT Broker");
+            subscribeToTopics();
+        } else {
+            Serial.print("❌ MQTT Connect Failed. Retry in 5 sec...");
+            delay(5000);
+        }
+    }
+}
+
+// **Subscribe to MQTT Topics**
+void subscribeToTopics() {
+    if (userID == "") return;
+    
+    String topics[] = {
+        baseTopic + "switch1/power",
+        baseTopic + "switch2/power",
+        baseTopic + "switch3/power",
+        baseTopic + "switch4/power",
+        baseTopic + "switch5/power",
+        baseTopic + "switch1/speed",
+        baseTopic + "switch2/speed",
+        baseTopic + "switch3/speed",
+        baseTopic + "switch4/speed",
+        baseTopic + "switch5/speed"
+    };
+
+    for (String topic : topics) {
+        client.subscribe(topic.c_str());
+        Serial.println("📡 Subscribed: " + topic);
+    }
+}
+
+// **Handle MQTT Messages**
+void callback(char* topic, byte* payload, unsigned int length) {
+    String message = "";
+    for (int i = 0; i < length; i++) {
+        message += (char)payload[i];
+    }
+    Serial.print("📩 Received [" + String(topic) + "]: ");
+    Serial.println(message);
+
+    // **Parse Topic**
+    String topicStr = String(topic);
+    int switchNum = getSwitchNumber(topicStr);
+    
+    if (topicStr.endsWith("power")) {
+        digitalWrite(getSwitchPin(switchNum), message.toInt());
+        Serial.printf("🔘 Switch %d %s\n", switchNum, message == "1" ? "ON" : "OFF");
+    } 
+    else if (topicStr.endsWith("speed")) {
+        int speedVal = message.toInt();
+        controlSpeed(switchNum, speedVal);
+    }
+}
+
+// **Extract Switch Number from Topic**
+int getSwitchNumber(String topic) {
+    if (topic.indexOf("switch1") > -1) return 1;
+    if (topic.indexOf("switch2") > -1) return 2;
+    if (topic.indexOf("switch3") > -1) return 3;
+    if (topic.indexOf("switch4") > -1) return 4;
+    if (topic.indexOf("switch5") > -1) return 5;
+    return -1;
+}
+
+// **Map Switch Number to GPIO Pin**
+int getSwitchPin(int switchNum) {
+    switch (switchNum) {
+        case 1: return SWITCH_1;
+        case 2: return SWITCH_2;
+        case 3: return SWITCH_3;
+        case 4: return SWITCH_4;
+        case 5: return SWITCH_5;
+        default: return -1;
+    }
+}
+
+// **Control Speed using Phase Angle Delay**
+void controlSpeed(int switchNum, int speedVal) {
+    int pin = getSwitchPin(switchNum);
+    if (pin == -1) return;
+
+    int delayTime = map(speedVal, 0, 100, 8000, 200); // Map speed (0-100) to delay time
+    attachInterrupt(digitalPinToInterrupt(ZCD_PIN), []() {
+        delayMicroseconds(delayTime);
+        digitalWrite(pin, HIGH);
+        delayMicroseconds(100);
+        digitalWrite(pin, LOW);
+    }, RISING);
+    
+    Serial.printf("⚡ Speed Set: Switch %d → %d%%\n", switchNum, speedVal);
+}
