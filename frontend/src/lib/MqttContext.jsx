@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import mqtt from "mqtt";
 import { useAuthStore } from "../store/useAuthStore"; 
 
-const MQTT_BROKER_URL = "ws://192.168.1.38:8883"; 
+const MQTT_BROKER_URL = "ws://192.168.1.8:8883"; 
 
 const MqttContext = createContext();
 

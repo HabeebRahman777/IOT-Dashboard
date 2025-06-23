@@ -8,7 +8,7 @@ import { Pencil } from "lucide-react";
 const ControlPage = () => {
   const { deviceId } = useParams();
   const { mqttClient } = useMqtt();
-  const { authUser } = useAuthStore();
+  const { authUser,checkAuth } = useAuthStore();
 
   const selectedDevice = authUser.devices.find(device => device.deviceId === deviceId);
   const roomDevices = selectedDevice ? selectedDevice.switches : [];
@@ -65,6 +65,7 @@ const ControlPage = () => {
     setEditingRoomName(false);
     try {
       await axiosInstance.put(`/devices/rename-room/${authUser._id}/${deviceId}`, { newName: roomName });
+      await checkAuth(); 
     } catch (error) {
       console.error("Error updating room name:", error);
     }
@@ -76,6 +77,7 @@ const ControlPage = () => {
       await axiosInstance.put(`/devices/rename-switch/${authUser._id}/${deviceId}/${switchId}`, {
         newName: deviceStates[switchId].name
       });
+      await checkAuth()
     } catch (error) {
       console.error("Error updating switch name:", error);
     }

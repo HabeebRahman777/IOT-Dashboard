@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { axiosInstance } from "../lib/axios";
 import { Mail, Lock } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
-  const { setAuthUser } = useAuthStore();
+  const { authUser,setAuthUser } = useAuthStore();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -25,6 +27,13 @@ const LoginPage = () => {
       const response = await axiosInstance.post("auth/login", formData);
       console.log("Logged in successfully");
       setAuthUser(response.data);
+      console.log(response.data.email);
+      
+      if (response.data.email === "admin@gmail.com") {
+        navigate("/admin");
+      } else {
+        navigate("/home");
+      }
       console.log(response.data);
     } catch (error) {
       console.log(error.message);

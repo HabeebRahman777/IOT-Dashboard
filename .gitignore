@@ -1,0 +1,34 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Optional: local environment config
+.env
+.env.*.local
+.env.local
+
+# VSCode settings (optional but common)
+.vscode/
+
+# esbuild cache (in case)
+.esbuild/
+
+# IDE files
+.idea/
+*.iml
+
+# Coverage reports (if using Jest or other test tools)
+coverage/

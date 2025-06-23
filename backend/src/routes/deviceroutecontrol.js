@@ -113,4 +113,20 @@ router.get("/get-userId/:deviceId",async(req,res)=>{
 
 })
 
+router.post('/add-device', async (req, res) => {
+  const { email, device } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.devices.push(device);
+    await user.save();
+
+    res.status(200).json({ message: 'Device added successfully', user });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
 export default router

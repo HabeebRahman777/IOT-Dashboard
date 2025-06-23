@@ -4,20 +4,16 @@ import { WebSocketServer } from "ws";
 import http from "http";
 import websocketStream from "websocket-stream";
 
-// Initialize Aedes Broker
-const aedes = Aedes(); // ✅ Properly instantiate Aedes
+const aedes = Aedes(); 
 
-// Define Ports
-const MQTT_PORT = 1883;  // MQTT (TCP) Port
-const WS_PORT = 8883;    // MQTT over WebSockets Port
+const MQTT_PORT = 1883;  
+const WS_PORT = 8883;    
 
-// TCP Server (MQTT Broker)
 const server = net.createServer(aedes.handle);
 server.listen(MQTT_PORT, () => {
   console.log(`🚀 Private MQTT Broker running on port ${MQTT_PORT}`);
 });
 
-// WebSocket Server for MQTT over WebSockets
 const httpServer = http.createServer();
 const wss = new WebSocketServer({ server: httpServer });
 
@@ -30,7 +26,6 @@ httpServer.listen(WS_PORT, () => {
   console.log(`🌐 MQTT WebSocket running on ws://localhost:${WS_PORT}`);
 });
 
-// Event Handlers
 aedes.on("client", (client) => {
   console.log(`✅ Client Connected: ${client.id}`);
 });
